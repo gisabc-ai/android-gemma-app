@@ -23,14 +23,14 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Setup Gradle
-        uses: gradle/gradle-setup-action@v4
+        uses: gradle/setup-gradle@v5
         with:
           gradle-version: 8.5
           
       - name: Build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon 2>&1 | tail -50
+          ./gradlew assembleDebug --no-daemon 2>&1 | tail -60
           
       - name: Upload APK
         if: success()
