@@ -1,7 +1,7 @@
 package com.example.gemmaapp
 
 import android.content.Context
-import com.google.mediapipe.tasks.genai.llm.LLmInference
+import com.google.mediapipe.tasks.genai.llm.LlmInference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -23,7 +23,7 @@ import java.io.File
 object InferenceEngine {
 
     // MediaPipe LLM Inference 实例
-    private var llmInference: LLmInference? = null
+    private var llmInference: LlmInference? = null
     
     // 当前加载的模型文件路径
     private var currentModelPath: String? = null
@@ -51,14 +51,14 @@ object InferenceEngine {
             val absolutePath = modelFile.absolutePath
             currentModelPath = absolutePath
             
-            val options = LLmInference.Options.builder()
+            val options = LlmInference.Options.builder()
                 .setModelPath(absolutePath)
                 .setMaxTokens(512)        // 最大输出 token 数
                 .setTopK(40)              // Top-K 采样
                 .setTemperature(0.8f)     // 温度参数
                 .build()
             
-            llmInference = LLmInference.createFromModelFile(context, options)
+            llmInference = LlmInference.createFromModelFile(context, options)
             isModelLoaded = true
             
             Result.success(Unit)
