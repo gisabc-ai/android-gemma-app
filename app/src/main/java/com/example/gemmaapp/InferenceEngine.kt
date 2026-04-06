@@ -15,7 +15,8 @@ import java.io.File
  * 支持通过 MediaPipe LLM Inference 在 Android 设备上本地运行 GGUF 格式的 Gemma 模型。
  * 
  * 使用方法：
- * 1. 从 https://huggingface.co/bartowski/gemma-2b-it-GGUF 下载 gemma-2b-it-Q4_K_M.gguf
+ * 1. 从 https://huggingface.co/bartowski/gemma-2-2b-it-GGUF 下载 gemma-2-2b-it-Q4_K_M.gguf
+ *    (约 1.6GB)
  * 2. 在 App 内点击「📥 加载模型」选择该文件
  * 3. 模型会复制到 App 私有目录并加载
  */
