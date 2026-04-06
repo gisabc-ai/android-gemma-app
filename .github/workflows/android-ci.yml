@@ -11,10 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           
       - name: Set up Android SDK
@@ -23,7 +23,6 @@ jobs:
       - name: Build debug APK
         run: |
           chmod +x gradlew
-          # Download gradle wrapper jar directly from GitHub gradle repo
           mkdir -p gradle/wrapper
           curl -sL -o gradle/wrapper/gradle-wrapper.jar \
             "https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar"
