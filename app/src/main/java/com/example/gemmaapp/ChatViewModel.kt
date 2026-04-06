@@ -108,8 +108,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val destFile = copyModelToInternal(uri, context)
 
                 if (destFile != null) {
-                    val ok = InferenceEngine.loadModel(context, destFile)
-                    if (ok) {
+                    val result = InferenceEngine.loadModel(context, destFile)
+                    if (result.isSuccess) {
                         _uiState.update {
                             it.copy(
                                 isModelLoaded = true,
@@ -205,17 +205,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
 
-                val ok = InferenceEngine.loadModel(context, destFile)
+                val result = InferenceEngine.loadModel(context, destFile)
                 _uiState.update {
                     it.copy(
-                        isModelLoaded = ok,
+                        isModelLoaded = result.isSuccess,
                         isLoadingModel = false,
-                        modelPath = if (ok) destFile.absolutePath else null,
+                        modelPath = if (result.isSuccess) destFile.absolutePath else null,
                         error = if (!ok) "Asset 模型加载失败" else null
                     )
                 }
 
-                if (ok) {
+                if (result.isSuccess) {
                     updateWelcomeMessage()
                     Toast.makeText(context, "✅ 模型加载成功", Toast.LENGTH_SHORT).show()
                 }
