@@ -1,6 +1,7 @@
 package com.example.gemmaapp
 
 import android.content.Context
+import android.util.Log
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.ProgressListener
@@ -25,6 +26,8 @@ import java.io.File
  */
 object InferenceEngine {
 
+    private const val TAG = "InferenceEngine"
+
     // MediaPipe LLM Inference 实例
     private var llmInference: LlmInference? = null
 
@@ -44,6 +47,7 @@ object InferenceEngine {
     suspend fun loadModel(context: Context, modelFile: File): Result<Unit> = withContext(Dispatchers.IO) {
         // 如果已加载相同文件，跳过
         if (isModelLoaded && currentModelPath == modelFile.absolutePath && llmInference != null) {
+            Log.i(TAG, "模型已加载，跳过: ${modelFile.absolutePath}")
             return@withContext Result.success(Unit)
         }
 
@@ -51,8 +55,40 @@ object InferenceEngine {
         close()
 
         try {
+            // 验证文件存在且可读
+            if (!modelFile.exists()) {
+                val msg = "模型文件不存在: ${modelFile.absolutePath}"
+                Log.e(TAG, msg)
+                return@withContext Result.failure(Exception(msg))
+            }
+            if (!modelFile.canRead()) {
+                val msg = "模型文件不可读，请检查权限: ${modelFile.absolutePath}"
+                Log.e(TAG, msg)
+                return@withContext Result.failure(Exception(msg))
+            }
+
+            // 验证 GGUF 文件头（魔数）
+            val header = ByteArray(4)
+            modelFile.inputStream().use { input ->
+                val readBytes = input.read(header)
+                if (readBytes < 4) {
+                    val msg = "模型文件太短，无法读取 GGUF 文件头"
+                    Log.e(TAG, msg)
+                    return@withContext Result.failure(Exception(msg))
+                }
+            }
+            val magic = String(header, Charsets.UTF_8)
+            Log.i(TAG, "文件头: '$magic' (expected 'GGUF')")
+            if (magic != "GGUF") {
+                val msg = "不是有效的 GGUF 文件，文件头: '$magic'（应为 'GGUF'）"
+                Log.e(TAG, msg)
+                return@withContext Result.failure(Exception(msg))
+            }
+
             val absolutePath = modelFile.absolutePath
             currentModelPath = absolutePath
+
+            Log.i(TAG, "开始加载模型: $absolutePath (${modelFile.length() / 1024 / 1024} MB)")
 
             val options = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(absolutePath)
@@ -63,8 +99,10 @@ object InferenceEngine {
             llmInference = LlmInference.createFromOptions(context, options)
             isModelLoaded = true
 
+            Log.i(TAG, "模型加载成功！")
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.e(TAG, "模型加载失败", e)
             isModelLoaded = false
             currentModelPath = null
             Result.failure(e)
@@ -73,8 +111,9 @@ object InferenceEngine {
 
     /**
      * 生成文本（流式）
-     * 返回 Flow<String>，每个 emit 出一个片段
-     * 注意：MediaPipe LLM 的 generateResponseAsync 通过 ProgressListener 提供流式回调
+     * MediaPipe 的 generateResponseAsync 本身不支持真正的流式回调，
+     * ProgressListener 的行为取决于具体实现。
+     * 这里简化处理：等待完整结果后一次性 emit。
      */
     fun generateStream(prompt: String): Flow<String> = flow {
         if (llmInference == null) {
@@ -83,18 +122,21 @@ object InferenceEngine {
         }
 
         try {
-            val buffer = StringBuilder()
+            Log.i(TAG, "开始生成，prompt 长度: ${prompt.length}")
             val future: ListenableFuture<String> = llmInference!!.generateResponseAsync(
                 prompt,
                 ProgressListener { partialResult, isDone ->
-                    // 流式回调：partialResult 是增量内容
-                    // 注意：此回调运行在内部线程，不在主线程
+                    // 注意：MediaPipe 的 ProgressListener 可能不会按片段调用，
+                    // 部分设备/版本可能只在 isDone=true 时才返回完整结果
+                    Log.d(TAG, "ProgressListener: isDone=$isDone, partial.len=${partialResult?.length ?: 0}")
                 }
             )
             // 等待完整结果
             val result = future.await()
+            Log.i(TAG, "生成完成，结果长度: ${result.length}")
             emit(result)
         } catch (e: Exception) {
+            Log.e(TAG, "生成失败", e)
             emit("错误：${e.message}")
         }
     }.flowOn(Dispatchers.IO)
@@ -108,9 +150,11 @@ object InferenceEngine {
         }
 
         try {
-            val result = llmInference?.generateResponse(prompt)
-            Result.success(result ?: "无输出")
+            Log.i(TAG, "generate() prompt 长度: ${prompt.length}")
+            val result = llmInference?.generateResponse(prompt) ?: ""
+            Result.success(result)
         } catch (e: Exception) {
+            Log.e(TAG, "generate() 失败", e)
             Result.failure(e)
         }
     }
@@ -131,7 +175,10 @@ object InferenceEngine {
     fun close() {
         try {
             llmInference?.close()
-        } catch (_: Exception) { }
+            Log.i(TAG, "模型资源已释放")
+        } catch (e: Exception) {
+            Log.e(TAG, "释放模型资源时出错", e)
+        }
         llmInference = null
         isModelLoaded = false
         currentModelPath = null

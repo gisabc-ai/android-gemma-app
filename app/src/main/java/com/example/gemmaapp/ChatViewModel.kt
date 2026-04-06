@@ -109,36 +109,41 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 if (destFile != null) {
                     val result = InferenceEngine.loadModel(context, destFile)
-                    if (result.isSuccess) {
-                        _uiState.update {
-                            it.copy(
-                                isModelLoaded = true,
-                                isLoadingModel = false,
-                                modelPath = destFile.absolutePath
-                            )
+                    result.fold(
+                        onSuccess = {
+                            _uiState.update {
+                                it.copy(
+                                    isModelLoaded = true,
+                                    isLoadingModel = false,
+                                    modelPath = destFile.absolutePath
+                                )
+                            }
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context,
+                                    "✅ 模型加载成功！可以开始聊天了",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            // 更新欢迎消息
+                            updateWelcomeMessage()
+                        },
+                        onFailure = { e ->
+                            Log.e(TAG, "模型加载失败: ${e.message}", e)
+                            _uiState.update {
+                                it.copy(
+                                    isLoadingModel = false,
+                                    isModelLoaded = false,
+                                    error = "模型加载失败: ${e.message}"
+                                )
+                            }
                         }
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                context,
-                                "✅ 模型加载成功！可以开始聊天了",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                        // 更新欢迎消息
-                        updateWelcomeMessage()
-                    } else {
-                        _uiState.update {
-                            it.copy(
-                                isLoadingModel = false,
-                                error = "模型加载失败，请检查文件是否有效"
-                            )
-                        }
-                    }
+                    )
                 } else {
                     _uiState.update {
                         it.copy(
                             isLoadingModel = false,
-                            error = "无法复制模型文件，请重试"
+                            error = "无法复制模型文件：文件无效或不是有效的 GGUF 格式"
                         )
                     }
                 }
@@ -166,8 +171,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val destFile = File(modelsDir, DEFAULT_MODEL_NAME)
 
                 context.contentResolver.openInputStream(uri)?.use { input ->
-                    FileOutputStream(destFile).use { output ->
-                        input.copyTo(output, bufferSize = 8192)
+                    // 先读取文件头验证 GGUF
+                    val header = ByteArray(4)
+                    val readBytes = input.read(header)
+                    if (readBytes < 4) {
+                        Log.e(TAG, "文件太短，无法读取 GGUF 头")
+                        return@withContext null
+                    }
+                    val magic = String(header, Charsets.UTF_8)
+                    if (magic != "GGUF") {
+                        Log.e(TAG, "无效的 GGUF 文件头: '$magic'")
+                        return@withContext null
+                    }
+                    Log.i(TAG, "GGUF 文件头验证通过: $magic")
+
+                    // 重新打开流（已消耗4字节）
+                    context.contentResolver.openInputStream(uri)?.use { freshInput ->
+                        FileOutputStream(destFile).use { output ->
+                            // 先写入文件头
+                            output.write(header)
+                            freshInput.copyTo(output, bufferSize = 8192)
+                        }
                     }
                 }
 
@@ -206,14 +230,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val result = InferenceEngine.loadModel(context, destFile)
-                _uiState.update {
-                    it.copy(
-                        isModelLoaded = result.isSuccess,
-                        isLoadingModel = false,
-                        modelPath = if (result.isSuccess) destFile.absolutePath else null,
-                        error = if (!result.isSuccess) "Asset 模型加载失败" else null
-                    )
-                }
+                result.fold(
+                    onSuccess = {
+                        _uiState.update {
+                            it.copy(
+                                isModelLoaded = true,
+                                isLoadingModel = false,
+                                modelPath = destFile.absolutePath,
+                                error = null
+                            )
+                        }
+                    },
+                    onFailure = { e ->
+                        _uiState.update {
+                            it.copy(
+                                isModelLoaded = false,
+                                isLoadingModel = false,
+                                modelPath = null,
+                                error = "Asset 模型加载失败: ${e.message}"
+                            )
+                        }
+                    }
+                )
 
                 if (result.isSuccess) {
                     updateWelcomeMessage()
