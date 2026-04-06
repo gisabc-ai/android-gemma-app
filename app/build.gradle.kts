@@ -18,11 +18,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        // NDK abiFilters - Gemma needs arm64-v8a at minimum
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
     }
 
     buildTypes {
@@ -57,9 +52,6 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-
-    // 加载 prebuilt native libs（如果用户提供 .so 或 .aar）
-    // sourceSets["main"].jniLibs.srcDirs += "libs"
 }
 
 dependencies {
@@ -83,9 +75,10 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // GGML llama.cpp binding（预编译 AAR）
-    // 用法：将 llm-bridge@aar 放到 app/libs/，然后取消下面的注释
-    // implementation(files("libs/llm-bridge.aar"))
+    // ========== MediaPipe LLM Inference (Google 官方) ==========
+    // 支持 Gemma / Phi / Mistral 等 GGUF 模型
+    // 模型文件放到 app/src/main/assets/ 下
+    implementation("com.google.mediapipe:tasks-genai:0.10.27")
 
     // 测试
     testImplementation("junit:junit:4.13.2")
