@@ -53,7 +53,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val TAG = "ChatViewModel"
         // 默认模型文件名
-        const val DEFAULT_MODEL_NAME = "gemma-3b-it-Q4_K_M.gguf"
+        const val DEFAULT_MODEL_NAME = "gemma-2-2b-it-Q4_K_M.gguf"
         // assets 中的模型文件名（打包进 APK 时使用）
         const val ASSET_MODEL_NAME = "models/$DEFAULT_MODEL_NAME"
     }
@@ -75,7 +75,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         id = 0,
                         role = MessageRole.Assistant,
                         content = "👋 你好！我是 Gemma AI 助手。\n\n" +
-                                "请先点击上方「📥 加载模型」按钮，选择 GGUF 模型文件（gemma-3b-it-Q4_K_M.gguf）。\n\n" +
+                                "请先点击上方「📥 加载模型」按钮，选择 GGUF 模型文件（gemma-2-2b-it-Q4_K_M.gguf）。\n\n" +
                                 "模型加载后，我就能真正回答你的问题啦！"
                     )
                 )
@@ -211,7 +211,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         isModelLoaded = result.isSuccess,
                         isLoadingModel = false,
                         modelPath = if (result.isSuccess) destFile.absolutePath else null,
-                        error = if (!ok) "Asset 模型加载失败" else null
+                        error = if (!result.isSuccess) "Asset 模型加载失败" else null
                     )
                 }
 
@@ -267,7 +267,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                val response = InferenceEngine.generate(text) { token ->
+                InferenceEngine.generateStream(text).collect { token ->
                     // 流式更新 UI
                     _uiState.update { state ->
                         val msgs = state.messages.toMutableList()
@@ -286,16 +286,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 // 标记完成
                 _uiState.update { state ->
-                    val msgs = state.messages.toMutableList()
-                    val lastIdx = msgs.indexOfLast { it.id == assistantMsgId }
-                    if (lastIdx >= 0) {
-                        msgs[lastIdx] = msgs[lastIdx].copy(
-                            content = response,
-                            isStreaming = false
-                        )
-                    }
                     state.copy(
-                        messages = msgs,
                         isLoading = false,
                         currentStreamingContent = ""
                     )
@@ -343,8 +334,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     msg.copy(
                         content = "✅ 模型已加载！我现在可以回答你的问题了。\n\n" +
                                 "设备: ${android.os.Build.MODEL}\n" +
-                                "模型: Gemma 3B Q4_K_M\n" +
-                                "推理: llama.cpp GGUF\n\n" +
+                                "模型: Gemma 2-2B Q4_K_M\n" +
+                                "推理: MediaPipe LLM\n\n" +
                                 "请输入你的问题，我会尽力回答！"
                     )
                 } else msg
