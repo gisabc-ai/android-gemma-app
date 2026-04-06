@@ -74,6 +74,7 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.7.3")
 
     // ========== MediaPipe LLM Inference (Google 官方) ==========
     // 支持 Gemma / Phi / Mistral 等 GGUF 模型

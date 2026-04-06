@@ -1,19 +1,22 @@
 package com.example.gemmaapp
 
 import android.content.Context
-import com.google.mediapipe.tasks.genai.llm.LlmInference
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.mediapipe.tasks.genai.llminference.ProgressListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
  * Gemma LLM 推理引擎
- * 
+ *
  * 支持通过 MediaPipe LLM Inference 在 Android 设备上本地运行 GGUF 格式的 Gemma 模型。
- * 
+ *
  * 使用方法：
  * 1. 从 https://huggingface.co/bartowski/gemma-2-2b-it-GGUF 下载 gemma-2-2b-it-Q4_K_M.gguf
  *    (约 1.6GB)
@@ -24,10 +27,10 @@ object InferenceEngine {
 
     // MediaPipe LLM Inference 实例
     private var llmInference: LlmInference? = null
-    
+
     // 当前加载的模型文件路径
     private var currentModelPath: String? = null
-    
+
     // 模型是否已加载
     @Volatile
     private var isModelLoaded = false
@@ -43,24 +46,23 @@ object InferenceEngine {
         if (isModelLoaded && currentModelPath == modelFile.absolutePath && llmInference != null) {
             return@withContext Result.success(Unit)
         }
-        
+
         // 释放之前的模型
         close()
-        
+
         try {
             val absolutePath = modelFile.absolutePath
             currentModelPath = absolutePath
-            
-            val options = LlmInference.Options.builder()
+
+            val options = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(absolutePath)
                 .setMaxTokens(512)        // 最大输出 token 数
-                .setTopK(40)              // Top-K 采样
-                .setTemperature(0.8f)     // 温度参数
+                .setMaxTopK(40)           // Top-K 采样
                 .build()
-            
-            llmInference = LlmInference.createFromModelFile(context, options)
+
+            llmInference = LlmInference.createFromOptions(context, options)
             isModelLoaded = true
-            
+
             Result.success(Unit)
         } catch (e: Exception) {
             isModelLoaded = false
@@ -72,6 +74,7 @@ object InferenceEngine {
     /**
      * 生成文本（流式）
      * 返回 Flow<String>，每个 emit 出一个片段
+     * 注意：MediaPipe LLM 的 generateResponseAsync 通过 ProgressListener 提供流式回调
      */
     fun generateStream(prompt: String): Flow<String> = flow {
         if (llmInference == null) {
@@ -80,9 +83,17 @@ object InferenceEngine {
         }
 
         try {
-            llmInference?.generateStream(prompt)?.let { result ->
-                result.get().let { emit(it) }
-            }
+            val buffer = StringBuilder()
+            val future: ListenableFuture<String> = llmInference!!.generateResponseAsync(
+                prompt,
+                ProgressListener { partialResult, isDone ->
+                    // 流式回调：partialResult 是增量内容
+                    // 注意：此回调运行在内部线程，不在主线程
+                }
+            )
+            // 等待完整结果
+            val result = future.await()
+            emit(result)
         } catch (e: Exception) {
             emit("错误：${e.message}")
         }
@@ -95,9 +106,9 @@ object InferenceEngine {
         if (llmInference == null) {
             return@withContext Result.failure(IllegalStateException("模型未加载"))
         }
-        
+
         try {
-            val result = llmInference?.generate(prompt)
+            val result = llmInference?.generateResponse(prompt)
             Result.success(result ?: "无输出")
         } catch (e: Exception) {
             Result.failure(e)
