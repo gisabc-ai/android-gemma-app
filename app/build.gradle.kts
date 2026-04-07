@@ -12,16 +12,15 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
 
-        // NDK abiFilters - Gemma needs arm64-v8a at minimum
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
@@ -57,9 +56,6 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-
-    // 加载 prebuilt native libs（如果用户提供 .so 或 .aar）
-    // sourceSets["main"].jniLibs.srcDirs += "libs"
 }
 
 dependencies {
@@ -83,11 +79,10 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // GGML llama.cpp binding（预编译 AAR）
-    // 用法：将 llm-bridge@aar 放到 app/libs/，然后取消下面的注释
-    // implementation(files("libs/llm-bridge.aar"))
+    // llama.cpp JNI module
+    implementation(project(":llama"))
 
-    // 测试
+    // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

@@ -9,39 +9,46 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        
+
+      - name: Clone llama.cpp (required for llama module native build)
+        run: |
+          cd ..
+          git clone --depth=1 https://github.com/ggerganov/llama.cpp.git
+          cd llama.cpp
+          # Use the commit that iris_android was tested with
+          git checkout 1f922254f0c984a8fb9fbaa0c390d7ffae49aedb
+
       - name: Fix Gradle Wrapper
         run: |
           mkdir -p gradle/wrapper
-          # Download wrapper jar from gradle release
           curl -sL -o gradle/wrapper/gradle-wrapper.jar \
             "https://github.com/nicnocquee/gradle-wrapper-jars/raw/main/gradle-8.5/gradle-wrapper.jar"
           chmod +x gradlew
           ls -la gradle/wrapper/
-          
+
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-cache-85
           restore-keys: ${{ runner.os }}-gradle-
-          
+
       - name: Build debug APK
         run: |
-          ./gradlew assembleDebug --no-daemon 2>&1 | tail -40
-          
+          ./gradlew assembleDebug --no-daemon 2>&1 | tail -50
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
