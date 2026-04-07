@@ -12,11 +12,15 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+
+        ndk {
+            abiFilters += listOf("arm64-v8a")
         }
     }
 
@@ -74,14 +78,11 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.7.3")
 
-    // ========== MediaPipe LLM Inference (Google 官方) ==========
-    // 支持 Gemma / Phi / Mistral 等 GGUF 模型
-    // 模型文件放到 app/src/main/assets/ 下
-    implementation("com.google.mediapipe:tasks-genai:0.10.27")
+    // llama.cpp JNI module
+    implementation(project(":llama"))
 
-    // 测试
+    // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

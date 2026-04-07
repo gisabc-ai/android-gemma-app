@@ -3,22 +3,30 @@ name: Android CI
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
     runs-on: ubuntu-24.04
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
-          
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Clone llama.cpp (for llama module native build)
+        run: |
+          cd ..
+          git clone --depth=1 https://github.com/ggerganov/llama.cpp.git
+          ls llama.cpp/CMakeLists.txt && echo "llama.cpp cloned OK"
 
       - name: Build debug APK
         run: |
@@ -27,12 +35,12 @@ jobs:
           curl -sL -o gradle/wrapper/gradle-wrapper.jar \
             "https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar"
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon 2>&1 | tail -60
-          
+          ./gradlew assembleDebug --no-daemon 2>&1 | tail -80
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: app-debug-llama-${{ github.run_id }}
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 7
