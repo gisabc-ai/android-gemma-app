@@ -3,32 +3,51 @@ name: Android CI
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-    
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '17'
           distribution: 'temurin'
-          
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build debug APK
+      - name: Clone llama.cpp (required for llama module native build)
         run: |
-          chmod +x gradlew
+          cd ..
+          git clone https://github.com/ggerganov/llama.cpp.git
+          cd llama.cpp
+          git checkout b3521f0c7f889515ff3b5b7f11ebe02f560ca5e2
+
+      - name: Fix Gradle Wrapper
+        run: |
           mkdir -p gradle/wrapper
           curl -sL -o gradle/wrapper/gradle-wrapper.jar \
-            "https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar"
+            "https://github.com/nicnocquee/gradle-wrapper-jars/raw/main/gradle-8.5/gradle-wrapper.jar"
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon 2>&1 | tail -60
-          
+          ls -la gradle/wrapper/
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-cache-85
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Build debug APK
+        run: |
+          ./gradlew assembleDebug --no-daemon 2>&1 | tail -80
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
